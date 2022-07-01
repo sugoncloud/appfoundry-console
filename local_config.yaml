@@ -1,0 +1,4 @@
+server:
+  apiServer:
+    url: http://node_ip:30881
+    wsUrl: ws://node_ip:30881

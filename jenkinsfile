@@ -1,0 +1,97 @@
+pipeline {
+    agent {
+        node {
+            label 'nodejs'
+        }
+    }
+ 
+    environment {
+        GITLAB_CREDENTIAL_ID = 'gitlab-bj'
+        KUBECONFIG_CREDENTIAL_ID = 'kubeconfig'
+        GITLAB_ACCOUNT = 'yangzhy'
+        REGISTRY = 'harbor.cmp.sugon.tech'
+        PROJ_NAME = 'cv-console-kubesphere'
+        HARBOR_CREDENTIAL = credentials('harbor')
+        HARBOR_SECRET_NAME = 'docker-harbor-cv'
+        HARBOR_NAMESPACE = 'cv-console-dev'
+    }
+ 
+    stages {
+        stage ('git clone') {
+            steps {
+                checkout(scm)
+            }
+        }
+ 
+        stage('动态获取提交人邮箱') {
+            agent none
+            steps {
+                script {
+                    env.COMMIT_ID = sh(returnStdout: true, script: "git log -n 1 --pretty=format:'%h'").trim()
+                    env.BUILD_FLAG="${COMMIT_ID}"
+                    // Git committer email
+                    env.GIT_COMMIT_EMAIL = sh (script: "git --no-pager show -s --format='%ae' $COMMIT_ID",returnStdout: true).trim()
+                    echo "Git committer email: $GIT_COMMIT_EMAIL"
+                }
+            }
+        }
+
+        stage('安装依赖') {
+            agent none
+            steps {
+                container('nodejs') {
+                    sh 'yarn config set sass-binary-site http://npm.taobao.org/mirrors/node-sass'
+                    sh 'yarn --ignore-engines'
+                }
+            }
+        }
+
+        stage('编译构建') {
+            agent none         
+            steps {
+                container('nodejs') {
+                    sh 'yarn build'
+                }
+            }
+        }
+
+        stage('镜像构建和推送') {
+            agent none
+            steps {
+                container('nodejs') {
+                    sh 'docker build -f Dockerfile -t $REGISTRY/$HARBOR_NAMESPACE/$PROJ_NAME:$BUILD_FLAG .'
+                    sh 'echo $HARBOR_CREDENTIAL_PSW | docker login $REGISTRY -u \'admin\' --password-stdin'
+                    sh 'docker push $REGISTRY/$HARBOR_NAMESPACE/$PROJ_NAME:$BUILD_FLAG'
+                }
+            }
+        }  
+
+        stage('deploy to dev') {
+            steps {
+                script {
+                    env.NAMESPACE = "cv-console-dev"
+                }
+                kubernetesDeploy(configs: 'deploy/dev/**', enableConfigSubstitution: true, kubeconfigId: "$KUBECONFIG_CREDENTIAL_ID")
+            }
+        }
+         
+    }
+    post {
+        success {
+          updateGitlabCommitStatus(name: 'build', state: 'success')
+        }
+        fixed {
+          echo 'the pipeline was fixed and excuted successfully'
+        }
+        failure {
+            updateGitlabCommitStatus(name: 'build', state: 'failed')
+            addGitLabMRComment(comment: 'Something unexpected happened. Please inspect Jenkins logs.')
+            script {
+                        mail to: "${env.GIT_COMMIT_EMAIL}",
+                        subject: "devops-${env.PROJ_NAME}",
+                        body: """您负责开发模块的devops流水线${env.PROJ_NAME}构建出错，请及时登录容器云平台查看错误日志，并修复代码重新提交。
+                        流水线地址：https://kubesphere.devops.sugon.site/cv-console-system/clusters/host/devops/dev-cv-console-web86mmw/pipelines/${env.PROJ_NAME}/pipeline"""
+            }
+        }
+  }
+}

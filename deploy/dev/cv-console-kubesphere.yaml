@@ -1,0 +1,68 @@
+#now_time:2022-05-10 17:59:43
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cv-console-kubesphere
+  namespace: $NAMESPACE
+  labels:
+    app: cv-console-kubesphere
+    tier: frontend
+    version: v3.1.1
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  selector:
+    matchLabels:
+      app: cv-console-kubesphere
+      tier: frontend
+      version: v3.1.1  
+  template:
+    metadata:
+      labels:
+        app: cv-console-kubesphere
+        tier: frontend
+        version: v3.1.1    
+    spec:
+      volumes:
+        - name: volume-cv-console-kubesphere
+          configMap:
+            name: cv-console-kubesphere
+            items:
+              - key: local_config.yaml
+                path: local_config.yaml
+            defaultMode: 420
+        - name: host-time
+          hostPath:
+            path: /etc/localtime
+            type: '' 
+      containers:
+        - image: $REGISTRY/$HARBOR_NAMESPACE/cv-console-kubesphere:$BUILD_FLAG
+          name: cv-console-kubesphere
+          imagePullPolicy: Always  
+          resources:
+            limits:
+              cpu: '1'
+              memory: 512Mi
+            requests:
+              cpu: 20m
+              memory: 100Mi
+          livenessProbe:
+            tcpSocket:
+              port: 8000
+            initialDelaySeconds: 15
+            timeoutSeconds: 15
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 8
+          ports:
+            - containerPort: 8000
+              name: http
+          volumeMounts:
+            - name: volume-cv-console-kubesphere
+              mountPath: /opt/kubesphere/console/server/local_config.yaml
+              subPath: local_config.yaml
+            - name: host-time
+              mountPath: /etc/localtime
+      imagePullSecrets:
+        - name: $HARBOR_SECRET_NAME
+      restartPolicy: Always 

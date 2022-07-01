@@ -1,0 +1,5 @@
+make --dry-run --always-make --keep-going --print-directory
+make: Entering directory `/opt/code/sugon/appfoundry/appfoundry-console'
+docker volume create nodemodules
+make: Leaving directory `/opt/code/sugon/appfoundry/appfoundry-console'
+ 

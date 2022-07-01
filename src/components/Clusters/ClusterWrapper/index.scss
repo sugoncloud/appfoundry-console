@@ -1,0 +1,15 @@
+@import '~scss/variables';
+@import '~scss/mixins';
+
+.tags {
+  :global {
+    .tag {
+      margin-right: 4px;
+
+      .icon {
+        margin-top: -2px;
+        margin-right: 2px;
+      }
+    }
+  }
+}
