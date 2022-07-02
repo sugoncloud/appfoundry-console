@@ -115,3 +115,11 @@ Please submit any AppFoundry Console bugs, issues, and feature requests to [AppF
 ## Contributing to the project
 
 Welcome to contribute to AppFoundry Console, see [Contributing Guide](CONTRIBUTING.md).
+
+## License
+
+AppFoundry Console is available under the [AGPL v3 license](LICENSE).
+
+This project is modified open source components which have additional licensing terms in 2021-03-01.  The official source code and licensing terms for these open source components can be found at the following locations:
+
+* KubeSphere Console: [source code](https://github.com/kubesphere/console), [license](https://github.com/kubesphere/console/blob/master/LICENSE)
